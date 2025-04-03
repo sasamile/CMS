@@ -277,10 +277,10 @@ export function EventForm({ initialData }: EventFormProps) {
     billboardImage: string,
     images: string[],
     audio: string,
-    videoUrl: string
+    videoUrl?: string
   ) => {
     try {
-      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl);
+      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl!);
 
       const { success, error } = await createEvent(
         values,
@@ -308,10 +308,10 @@ export function EventForm({ initialData }: EventFormProps) {
     billboardImage: string,
     images: string[],
     audioUrl: string,
-    videoUrl: string
+    videoUrl?: string
   ) => {
     try {
-      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl);
+      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl!);
 
       if (initialData && initialData.id) {
         const { success, error } = await updateEvent(
