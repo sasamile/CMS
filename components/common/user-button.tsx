@@ -1,5 +1,5 @@
-import Link from "next/link"
-import { LogOut, UserRound } from "lucide-react"
+import Link from "next/link";
+import { LogOut, UserRound } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -7,17 +7,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { UserAvatar } from "@/components/common/user-avatar"
-import { currentUser } from "@/lib/auth-user"
-import { SignOutButton } from "./sign-out-button"
+} from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/common/user-avatar";
+import { currentUser } from "@/lib/auth-user";
+import { SignOutButton } from "./sign-out-button";
 
 interface UserButtonProps {
-  className?: string
+  className?: string;
 }
 
 export async function UserButton({ className }: UserButtonProps) {
-  const loggedUser = await currentUser()
+  const loggedUser = await currentUser();
 
   return (
     <DropdownMenu>
@@ -31,12 +31,11 @@ export async function UserButton({ className }: UserButtonProps) {
         sideOffset={5}
         className="w-[264px] lg:mr-3 ml-3 bg-slate-50 dark:bg-zinc-900"
       >
-        <Link href={`/setting/profile/${loggedUser?.id}`}>
-          <DropdownMenuItem className="cursor-pointer py-2">
-            <UserRound className="size-4 mr-2" />
-            Perfil
-          </DropdownMenuItem>
-        </Link>
+        <DropdownMenuItem className="cursor-pointer py-2">
+          <UserRound className="size-4 mr-2" />
+          {loggedUser?.name} - {loggedUser?.email}
+        </DropdownMenuItem>
+
         <DropdownMenuSeparator />
         <DropdownMenuItem className="p-0">
           <SignOutButton
@@ -48,5 +47,5 @@ export async function UserButton({ className }: UserButtonProps) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

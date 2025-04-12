@@ -42,6 +42,7 @@ function DashboardCard({
 }
 
 function App() {
+  
   const sections = [
     {
       icon: MessageSquare,

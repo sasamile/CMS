@@ -23,24 +23,30 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
   const { setSelectedItem } = useAboutUsStore() // Usar Zustand para cambiar el ítem seleccionado
   const [loading, startTransition] = useTransition()
 
-  const [title, setTitle] = useState(data?.title)
-  const [description, setDescription] = useState(data?.description)
+  const [title, setTitle] = useState(data?.title || "")
+  const [description, setDescription] = useState(data?.description || "")
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const [descriptionError, setDescriptionError] = useState<string | null>(null)
   const [isReverse, setIsReverse] = useState(false)
   const [imageSrc, setImageSrc] = useState<string | null>(data?.image || null)
   const [file, setFile] = useState<File | null>(null)
 
   useEffect(() => {
     if (!data) {
-      setTitle(undefined)
-      setDescription(undefined)
+      setTitle("")
+      setDescription("")
       setIsReverse(false)
       setImageSrc(null)
       setFile(null)
+      setTitleError(null)
+      setDescriptionError(null)
     } else {
       setTitle(data.title)
       setDescription(data.description)
       setIsReverse(data.reverse || false)
       setImageSrc(data.image || null)
+      setTitleError(null)
+      setDescriptionError(null)
     }
   }, [data])
 
@@ -61,11 +67,30 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
 
       const src = URL.createObjectURL(file)
       setImageSrc(src)
-
-      // También actualizar el valor del formulario de react-hook-form
-      // form.setValue("image", src)
     }
   }
+
+  const handleTitleChange = (e: React.FormEvent<HTMLHeadingElement>) => {
+    const newTitle = e.currentTarget.textContent || "";
+    if (newTitle.length > 80) {
+      setTitleError("El título no puede exceder los 80 caracteres.");
+      setTitle(newTitle.slice(0, 100)); // Limitar a 80 caracteres
+    } else {
+      setTitleError(null);
+      setTitle(newTitle);
+    }
+  };
+
+  const handleDescriptionChange = (e: React.FormEvent<HTMLParagraphElement>) => {
+    const newDescription = e.currentTarget.textContent || "";
+    if (newDescription.length > 890) {
+      setDescriptionError("La descripción no puede exceder los 850 caracteres.");
+      setDescription(newDescription.slice(0, 890)); // Limitar a 300 caracteres
+    } else {
+      setDescriptionError(null);
+      setDescription(newDescription);
+    }
+  };
 
   const toastMessage = data ? "Sección actualizada" : "Sección creada"
 
@@ -77,6 +102,15 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
           title: title!,
           description: description!,
           reverse: isReverse,
+        }
+
+        // Validar con Zod antes de enviar
+        const validation = AboutUsSchema.safeParse(infoData);
+        if (!validation.success) {
+          validation.error.errors.forEach((error) => {
+            toast.error(error.message);
+          });
+          return;
         }
 
         if (file) {
@@ -116,7 +150,6 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
 
       if (success) {
         toast.success(toastMessage)
-
         setSelectedItem(values.title)
       }
 
@@ -124,7 +157,7 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
         toast.error(error)
       }
     } catch {
-      toast.error("Algo salio mal al crear la sección.")
+      toast.error("Algo salió mal al crear la sección.")
     }
   }
 
@@ -163,13 +196,22 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
         gridTemplateAreas: isReverse ? "'content image'" : "'image content'",
       }}
     >
+      {/* Estilos personalizados para forzar el comportamiento del texto */}
+      <style jsx>{`
+        .force-wrap {
+          word-break: break-all;
+          overflow-wrap: break-word;
+          white-space: normal;
+        }
+      `}</style>
+
       {/* Boton de revertir el orden */}
       <div className="max-md:hidden">
         <Button
           size="icon"
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full bg-black dark:bg-white text-secondary z-[60]"
           onClick={() => {
-            console.log(isReverse) // e.stopPropagation()
+            console.log(isReverse)
             setIsReverse((prev) => !prev)
           }}
         >
@@ -218,7 +260,7 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
           </div>
 
           <input
-            key={imageSrc || "new"} // Cambiar la key cuando la imagen cambia o se crea uno nuevo
+            key={imageSrc || "new"}
             id="fileInput"
             name="file"
             type="file"
@@ -250,28 +292,29 @@ export default function AboutUsPreview({ data, className }: InfoSectionProps) {
           <h2
             contentEditable
             suppressContentEditableWarning
-            onInput={(e) => setTitle(e.currentTarget.textContent as string)}
-            className="text-3xl max-lg:text-[26px] font-bold outline-none focus:outline-none border-none"
+            onInput={handleTitleChange}
+            className="text-3xl max-lg:text-[26px] font-bold outline-none focus:outline-none border-none force-wrap"
           >
-            {data ? data.title : "Sin titulo"}
+            {title || (data ? data.title : "Sin título")}
           </h2>
+          {titleError && <p className="text-red-500 text-sm">{titleError}</p>}
+          
           <p
             contentEditable
             suppressContentEditableWarning
-            onInput={(e) =>
-              setDescription(e.currentTarget.textContent as string)
-            }
-            className="text-foreground/70 lg:text-lg max-lg:text-[16px] outline-none focus:outline-none border-none"
+            onInput={handleDescriptionChange}
+            className="text-foreground/70 lg:text-lg max-lg:text-[16px] outline-none focus:outline-none border-none force-wrap"
           >
-            {data ? data.description : "Sin descripción"}
+            {description || (data ? data.description : "Sin descripción")}
           </p>
+          {descriptionError && <p className="text-red-500 text-sm">{descriptionError}</p>}
         </div>
       </div>
 
-      {/* Contenedor del boton de envio de información */}
+      {/* Contenedor del botón de envío de información */}
       <div className="flex items-center justify-end mt-2 gap-4">
         <Button
-          disabled={!title || !description || !imageSrc || loading}
+          disabled={!title || !description || !imageSrc || loading || !!titleError || !!descriptionError}
           onClick={handleSubmit}
         >
           {loading && <Loader2 className="size-5 animate-spin mr-3" />}

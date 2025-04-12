@@ -36,6 +36,7 @@ import { EventSchema } from "@/schemas/event";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+
 import {
   deleteFile,
   deleteFiles,
@@ -44,6 +45,7 @@ import {
   uploadImages,
 } from "@/actions/uploadthing";
 import { createEvent, deleteEvent, updateEvent } from "@/actions/event";
+import { Textarea } from "@/components/ui/textarea";
 
 interface EventFormProps {
   initialData: Event | null;
@@ -54,7 +56,6 @@ export function EventForm({ initialData }: EventFormProps) {
 
   const [open, setOpen] = useState(false);
   const [loadingDelete, startDeleteTransition] = useTransition();
-
   const [isLoading, startTransition] = useTransition();
   const [imageSrc, setImageSrc] = useState<string | null>(
     initialData?.billboard ?? ""
@@ -85,12 +86,12 @@ export function EventForm({ initialData }: EventFormProps) {
       title: initialData?.title || "",
       description: initialData?.description || "",
       address: initialData?.address || "",
-      startDate: initialData?.startDate,
-      endDate: initialData?.endDate,
+      startDate: initialData?.startDate || undefined,
+      endDate: initialData?.endDate || undefined,
     },
   });
 
-  const { isSubmitting } = form.formState;
+  const { isSubmitting, isValid } = form.formState;
 
   // Funciones para la elección de la imagen y el podcast
   const handleChange = (
@@ -100,7 +101,7 @@ export function EventForm({ initialData }: EventFormProps) {
     const file = e.target.files && e.target.files[0];
 
     if (file && type === "image") {
-      const maxSizeInBytes = 1 * 1024 * 1024; // Tamaño máximo de la imagen 4MB
+      const maxSizeInBytes = 4 * 1024 * 1024; // Tamaño máximo de la imagen 4MB
       if (file.size > maxSizeInBytes) {
         setImageSrc(null);
         toast.error(
@@ -110,21 +111,15 @@ export function EventForm({ initialData }: EventFormProps) {
       }
 
       setFile(file);
-
       const src = URL.createObjectURL(file);
       setImageSrc(src);
-
-      // Restablecer el valor del campo para permitir la selección del mismo archivo después
       e.target.value = "";
     }
 
     if (file && type === "podcast") {
       setPodcastFile(file);
-
       const src = URL.createObjectURL(file);
       setPodcastSrc(src);
-
-      // Restablecer el valor del campo para permitir la selección del mismo archivo después
       e.target.value = "";
     }
   };
@@ -138,7 +133,6 @@ export function EventForm({ initialData }: EventFormProps) {
     const maxSizeInBytes = 4 * 1024 * 1024; // Tamaño máximo por imagen (4MB)
     const selectedFiles = Array.from(files);
 
-    // Verifica si alguna imagen excede el tamaño permitido
     const validFiles = selectedFiles.filter((file) => {
       if (file.size > maxSizeInBytes) {
         toast.error(
@@ -149,7 +143,6 @@ export function EventForm({ initialData }: EventFormProps) {
       return true;
     });
 
-    // Si hay imágenes válidas, las agregamos al estado
     if (validFiles.length > 0) {
       const imageUrls = validFiles.map((file) => URL.createObjectURL(file));
       setImagesSrc((prevImages) =>
@@ -160,26 +153,22 @@ export function EventForm({ initialData }: EventFormProps) {
       );
     }
 
-    // Restablecer el valor del input para permitir la selección del mismo archivo después
     e.target.value = "";
   };
 
   const onSubmit = (values: z.infer<typeof EventSchema>) => {
     const formData = new FormData();
 
-    // Agregar la imagen principal si existe
     if (file) {
       formData.append("image", file);
     }
 
-    // Agregar las imágenes múltiples al mismo campo del FormData
     if (imageFiles && imageFiles.length > 0) {
       imageFiles.forEach((imageFile) => {
-        formData.append("images", imageFile); // Todas las imágenes se agregan bajo el mismo campo 'images'
+        formData.append("images", imageFile);
       });
     }
 
-    // Agregar el podcast si existe
     if (podcastFile) {
       formData.append("audio", podcastFile);
     }
@@ -190,7 +179,6 @@ export function EventForm({ initialData }: EventFormProps) {
         let images = initialData?.images || [];
         let audioUrl = initialData?.podcastUrl || "";
 
-        // Si hay una nueva imagen principal, subirla
         if (file) {
           const mainImageResult = await uploadImage(formData);
           if (!mainImageResult.success || !mainImageResult.imageUrl) {
@@ -198,34 +186,28 @@ export function EventForm({ initialData }: EventFormProps) {
           }
           billboardImage = mainImageResult.imageUrl;
 
-          // Eliminar la imagen principal anterior si existe
           if (initialData?.billboard) {
             await deleteFile(initialData.billboard);
           }
         }
 
-        // Si hay nuevas imágenes adicionales, subirlas
         if (imageFiles && imageFiles.length > 0) {
           const imagesResult = await uploadImages(formData);
           if (!imagesResult.success || !imagesResult.imageUrls) {
             throw new Error("Error uploading event images");
           }
 
-          // Agregar las nuevas imágenes a la lista de imágenes existentes
           images = [...images, ...imagesResult.imageUrls.map((img) => img.url)];
         }
 
-        // Si hay imágenes eliminadas, eliminarlas del servidor
         const removedImages = initialData?.images?.filter(
           (img) => !imagesSrc?.includes(img)
         );
         if (removedImages && removedImages.length > 0) {
           await deleteFiles(removedImages);
-          // Actualizar la lista de imágenes existentes
           images = images.filter((img) => !removedImages.includes(img));
         }
 
-        // Si hay un nuevo podcast, subirlo
         if (podcastFile) {
           const audioResult = await uploadAudio(formData);
           if (!audioResult.success || !audioResult.audioUrl) {
@@ -233,7 +215,6 @@ export function EventForm({ initialData }: EventFormProps) {
           }
           audioUrl = audioResult.audioUrl;
 
-          // Eliminar el podcast anterior si existe
           if (initialData?.podcastUrl) {
             await deleteFile(initialData.podcastUrl);
           }
@@ -247,7 +228,7 @@ export function EventForm({ initialData }: EventFormProps) {
             billboardImage,
             images,
             audioUrl,
-            videoUrl!
+            videoUrl || ""
           );
         } else {
           await updateProcess(
@@ -255,7 +236,7 @@ export function EventForm({ initialData }: EventFormProps) {
             billboardImage,
             images,
             audioUrl,
-            videoUrl!
+            videoUrl || ""
           );
         }
       } catch {
@@ -265,10 +246,10 @@ export function EventForm({ initialData }: EventFormProps) {
   };
 
   const getEmbeddedYoutubeUrl = (url: string) => {
+    if (!url) return "";
     const youtubeRegex =
       /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/;
     const match = url.match(youtubeRegex);
-
     return match ? `https://www.youtube.com/embed/${match[1]}` : url;
   };
 
@@ -277,10 +258,10 @@ export function EventForm({ initialData }: EventFormProps) {
     billboardImage: string,
     images: string[],
     audio: string,
-    videoUrl?: string
+    videoUrl: string
   ) => {
     try {
-      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl!);
+      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl);
 
       const { success, error } = await createEvent(
         values,
@@ -299,7 +280,7 @@ export function EventForm({ initialData }: EventFormProps) {
         toast.error(error);
       }
     } catch {
-      toast.error("Algo salio mal al crear el cartel publicitario.");
+      toast.error("Algo salió mal al crear el evento.");
     }
   };
 
@@ -308,10 +289,10 @@ export function EventForm({ initialData }: EventFormProps) {
     billboardImage: string,
     images: string[],
     audioUrl: string,
-    videoUrl?: string
+    videoUrl: string
   ) => {
     try {
-      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl!);
+      const formattedVideoUrl = getEmbeddedYoutubeUrl(videoUrl);
 
       if (initialData && initialData.id) {
         const { success, error } = await updateEvent(
@@ -340,10 +321,10 @@ export function EventForm({ initialData }: EventFormProps) {
   const handleDeletionConfirmation = () => {
     if (initialData) {
       const filesToDelete = [
-        ...initialData.images,
+        ...(initialData.images || []),
         initialData.billboard,
         initialData.podcastUrl,
-      ];
+      ].filter(Boolean);
 
       if (filesToDelete.length > 0) {
         startDeleteTransition(async () => {
@@ -396,9 +377,7 @@ export function EventForm({ initialData }: EventFormProps) {
             <Button
               variant="destructive"
               size="icon"
-              onClick={() => {
-                setOpen(true);
-              }}
+              onClick={() => setOpen(true)}
               className="dark:bg-red-500 max-xs:w-full items-center"
             >
               <Trash2 className="size-4 max-xs:mr-2" />
@@ -436,8 +415,8 @@ export function EventForm({ initialData }: EventFormProps) {
                     />
                     {initialData?.billboard && !imageSrc && (
                       <Image
-                        src={initialData?.billboard}
-                        alt="image file selected"
+                        src={initialData.billboard}
+                        alt="Imagen principal del evento"
                         width={180}
                         height={180}
                         className="object-cover size-full rounded-lg"
@@ -446,7 +425,7 @@ export function EventForm({ initialData }: EventFormProps) {
                     {imageSrc && (
                       <Image
                         src={imageSrc}
-                        alt="image file selected"
+                        alt="Imagen principal seleccionada"
                         width={180}
                         height={180}
                         className="object-cover size-full rounded-lg"
@@ -475,7 +454,7 @@ export function EventForm({ initialData }: EventFormProps) {
             <div className="space-y-8">
               <div className="space-y-3">
                 <Label className="text-xl font-semibold tracking-tight">
-                  Informacion General
+                  Información General
                 </Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 lg:gap-8">
                   <FormField
@@ -487,8 +466,9 @@ export function EventForm({ initialData }: EventFormProps) {
                         <FormControl>
                           <Input
                             variant="largeRounded"
-                            placeholder="Titulo del evento"
+                            placeholder="Título del evento"
                             disabled={isSubmitting}
+                            maxLength={80}
                             {...field}
                           />
                         </FormControl>
@@ -503,10 +483,11 @@ export function EventForm({ initialData }: EventFormProps) {
                       <FormItem>
                         <FormLabel>Descripción *</FormLabel>
                         <FormControl>
-                          <Input
-                            variant="largeRounded"
+                          <Textarea
                             placeholder="Descripción del evento"
                             disabled={isSubmitting}
+                            maxLength={150}
+                            rows={4}
                             {...field}
                           />
                         </FormControl>
@@ -525,6 +506,7 @@ export function EventForm({ initialData }: EventFormProps) {
                             variant="largeRounded"
                             placeholder="Dirección del evento"
                             disabled={isSubmitting}
+                            maxLength={200}
                             {...field}
                           />
                         </FormControl>
@@ -545,6 +527,12 @@ export function EventForm({ initialData }: EventFormProps) {
                             style={{ width: "100%", height: "56px" }}
                             value={field.value}
                             onChange={(date) => field.onChange(date)}
+                            disabledDate={(date) => {
+                              if (!date) return true; // Disable if date is undefined
+                              return (
+                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                              );
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -561,9 +549,15 @@ export function EventForm({ initialData }: EventFormProps) {
                           <DatePicker
                             format="MM/dd/yyyy hh:mm aa"
                             showMeridian
-                            style={{ width: "100%" }}
+                            style={{ width: "100%", height: "56px" }}
                             value={field.value}
                             onChange={(date) => field.onChange(date)}
+                            disabledDate={(date) => {
+                              if (!date) return true; // Disable if date is undefined
+                              const startDate = form.getValues("startDate");
+                              if (!startDate) return true; // Disable if startDate is undefined
+                              return date < startDate;
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -579,7 +573,7 @@ export function EventForm({ initialData }: EventFormProps) {
                 </Label>
                 <div>
                   <div className="space-y-2">
-                    <Label>Imagenes del evento</Label>
+                    <Label>Imágenes del evento</Label>
                     <div className="flex max-md:flex-col gap-2 w-full">
                       <div className="relative size-fit flex items-center justify-center gap-4">
                         <div className="size-[180px] rounded-lg mb-3">
@@ -611,7 +605,7 @@ export function EventForm({ initialData }: EventFormProps) {
                             >
                               <Image
                                 src={imgSrc}
-                                alt="image file selected"
+                                alt="Imagen del evento"
                                 fill
                                 className="object-cover size-full rounded-lg"
                               />
@@ -643,17 +637,13 @@ export function EventForm({ initialData }: EventFormProps) {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 lg:gap-8">
                     <div className="space-y-3">
-                      <Label className="">URL del video</Label>
-
+                      <Label>URL del video</Label>
                       <Input
                         variant="largeRounded"
-                        placeholder="Enlace del video promocional"
+                        placeholder="Enlace del video promocional (ej. https://youtube.com/watch?v=...)"
                         disabled={isSubmitting}
                         value={videoUrl}
-                        onChange={(e) => {
-                          console.log(e.target.value);
-                          setVideoUrl(e.target.value);
-                        }}
+                        onChange={(e) => setVideoUrl(e.target.value)}
                       />
                     </div>
                     <div className="relative space-y-2">
@@ -679,7 +669,7 @@ export function EventForm({ initialData }: EventFormProps) {
                             hidden
                           />
                         </label>
-                        {podcastSrc && <audio src={podcastSrc!} controls />}
+                        {podcastSrc && <audio src={podcastSrc} controls />}
                         {podcastSrc && (
                           <Button
                             type="button"
@@ -705,13 +695,12 @@ export function EventForm({ initialData }: EventFormProps) {
             <div className="pt-3 pb-2 text-end">
               <Button
                 type="submit"
-                disabled={isSubmitting || !imageSrc || isLoading}
+                disabled={isSubmitting || !isValid || !imageSrc || isLoading}
                 className="font-semibold"
               >
-                {isSubmitting ||
-                  (isLoading && (
-                    <Loader2 className="size-5 mr-3 animate-spin" />
-                  ))}
+                {isSubmitting || isLoading ? (
+                  <Loader2 className="size-5 mr-3 animate-spin" />
+                ) : null}
                 {action}
               </Button>
             </div>
