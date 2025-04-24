@@ -22,6 +22,12 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "CMS",
   description: "CMS CACTO",
+  icons: {
+    icon: "/icons/logo.png",
+    shortcut: "/icons/logo.png",
+    apple: "/icons/logo.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export default async function RootLayout({
